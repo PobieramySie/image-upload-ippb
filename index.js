@@ -8,7 +8,7 @@ app.use(cors());
 
 // Set up Google Cloud Storage
 const storage = new Storage();
-const bucketName = 'my-image-gallery-bucket';
+const bucketName = 'image-gallery-ippb';
 const bucket = storage.bucket(bucketName);
 
 // Configure multer for in-memory upload
