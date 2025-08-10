@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nasze Wspomnienia Weselne</title>
+  <link href="https://fonts.googleapis.com/css2?family=Corinthia&family=Lato&family=Mrs+Saint+Delafield&family=Playfair+Display&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Lato', sans-serif;
+      background-color: #F0F4F8;
+      color: #1F2A35;
+      text-align: center;
+      padding: 2rem;
+      margin: 0;
+    }
+    h1 {
+      font-family: 'Corinthia', cursive;
+      font-size: 4.5em;
+      margin-bottom: 0.5em;
+      font-weight: 100;
+    }
+    p {
+      font-family: 'Playfair Display', serif;
+      max-width: 600px;
+      margin: 0 auto 2em;
+      font-size: 1.1em;
+    }
+    .button {
+      display: inline-block;
+      background-color: #A0B9D9;
+      color: #1F2A35;
+      padding: 12px 28px;
+      margin: 0.5em;
+      border: none;
+      border-radius: 30px;
+      font-size: 1em;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.3s;
+      font-family: 'Lato', sans-serif;
+    }
+    .button:hover {
+      background-color: #7FA1C4;
+    }
+    footer {
+      margin-top: 3rem;
+      font-size: 0.8em;
+      color: #1F2A35;
+    }
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 3.5em;
+      }
+      .button {
+        width: 80%;
+      }
+    }
+
+    /* Loading screen styles */
+    #loadingScreen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(255, 255, 255, 0.9);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 9999;
+    }
+    #uploadProgress {
+      width: 300px;
+      height: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Nasze Wspomnienia Weselne</h1>
+  
+  <p>
+    Dziękujemy, że jesteście z nami w tym wyjątkowym dniu. Możecie podzielić się swoimi zdjęciami albo obejrzeć piękne chwile uchwycone przez innych.
+  </p>
+
+  <a href="#" onclick="document.getElementById('fileInput').click();" class="button">Prześlij zdjęcia lub filmy</a>
+  <a href="gallery.html" class="button">Zobacz całą galerię</a>
+
+  <input type="file" id="fileInput" accept="image/*,video/*" multiple style="display:none" onchange="uploadFiles()" />
+
+  <!-- Loading screen -->
+  <div id="loadingScreen">
+    <p>Przesyłanie... <span id="progressPercent">0%</span></p>
+    <progress id="uploadProgress" value="0" max="100"></progress>
+  </div>
+
+  <footer>
+    Po załadowaniu plików pojawi się potwierdzenie ich przesłania. Dziękujemy za wspólne wspomnienia!
+  </footer>
+
+  <script>
+    const API_URL = 'https://gallery-api-1000866423573.europe-west1.run.app';
+
+    function uploadFiles() {
+      const input = document.getElementById('fileInput');
+      const files = input.files;
+      if (!files.length) return;
+
+      const formData = new FormData();
+      for (const file of files) {
+        formData.append('files', file);
+      }
+
+      const loadingScreen = document.getElementById('loadingScreen');
+      const progressBar = document.getElementById('uploadProgress');
+      const progressText = document.getElementById('progressPercent');
+
+      loadingScreen.style.display = 'flex';
+      progressBar.value = 0;
+      progressText.textContent = '0%';
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API_URL}/upload`);
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          progressBar.value = percent;
+          progressText.textContent = `${percent}%`;
+        }
+      };
+
+      xhr.onload = () => {
+        loadingScreen.style.display = 'none';
+        input.value = '';
+        if (xhr.status === 200) {
+          const data = JSON.parse(xhr.responseText);
+          if (data.urls && Array.isArray(data.urls)) {
+            alert('Przesłane pliki:\n' + data.urls.join('\n'));
+          } else {
+            alert('Pliki zostały przesłane, ale nie otrzymano linków.');
+          }
+        } else {
+          alert('Błąd przesyłania plików.');
+        }
+      };
+
+      xhr.onerror = () => {
+        loadingScreen.style.display = 'none';
+        alert('Błąd podczas przesyłania.');
+      };
+
+      xhr.send(formData);
+    }
+
+    // Optional: warn user before leaving during upload
+    window.onbeforeunload = function () {
+      if (document.getElementById('loadingScreen').style.display === 'flex') {
+        return 'Trwa przesyłanie plików. Czy na pewno chcesz opuścić stronę?';
+      }
+    };
+  </script>
+
+</body>
+</html>

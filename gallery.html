@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Galeria Weselna</title>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Lato&family=Playfair+Display&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Playfair Display', serif;
+      background-color: #F0F4F8;
+      color: #1F2A35;
+      margin: 0;
+      padding: 1.5rem;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 2em;
+      margin-bottom: 1em;
+    }
+
+    #gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 16px;
+      padding: 1em 0;
+    }
+    
+    #gallery img,
+    #gallery video {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 8px;
+      object-fit: cover;
+      border: 1px solid #e0d7cd;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+      transition: transform 0.2s ease;
+      cursor: pointer;
+      loading: lazy;
+    }
+
+    #gallery img:hover,
+    #gallery video:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.1);
+    }
+
+    #lightboxVideo {
+      width: auto;
+      height: auto;
+      max-width: 90vw;
+      max-height: 85vh;
+      object-fit: contain;
+      border-radius: 12px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.7);
+      margin-bottom: 1rem;
+      box-sizing: border-box;
+    }
+
+    a.button {
+      color: #1F2A35;
+      display: inline-block;
+      margin-top: 2em;
+      background-color: #A0B9D9;
+      padding: 10px 24px;
+      border-radius: 30px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: background-color 0.3s ease;
+    }
+
+    a.button:hover {
+      background-color: #7FA1C4;
+    }
+
+    #loadMoreBtn {
+      margin-top: 1.5em;
+      background-color: #A0B9D9;
+      color: #1F2A35;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 25px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    #loadMoreBtn:hover {
+      background: #7FA1C4;
+      color: #1F2A35;
+    }
+
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 1.5em;
+      }
+      #gallery {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 8px;
+      }
+      #gallery img,
+      #gallery video {
+        height: 90px;
+      }
+    }
+
+    /* Lightbox overlay */
+    #lightboxOverlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      cursor: zoom-out;
+      flex-direction: column;
+    }
+
+    #lightboxImage {
+      width: auto;
+      height: auto;
+      max-width: 90vw;
+      max-height: 85vh;
+      object-fit: contain;
+      border-radius: 12px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.7);
+      margin-bottom: 1rem;
+      box-sizing: border-box;
+    }
+
+    /* Next / Prev Buttons */
+    #lightboxControls {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .lightboxBtn {
+      background: #A0B9D9; /* rgba(255, 255, 255, 0.8); */
+      border: none;
+      padding: 10px 20px;
+      font-size: 1rem;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: 600;
+      color: #1F2A35;
+      user-select: none;
+      transition: background-color 0.3s ease;
+      font-family: 'Playfair Display', serif;
+    }
+    .lightboxBtn:hover {
+      background: #7FA1C4;
+      color: #1F2A35;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Galeria zdjęć weselnych</h1>
+  <div id="gallery"></div>
+
+  <button id="loadMoreBtn" onclick="loadMoreImages()">Załaduj więcej</button>
+
+  <a href="index.html" class="button">← Powrót</a>
+
+  <!-- Lightbox overlay -->
+  <div id="lightboxOverlay" onclick="closeLightbox(event)">
+    <div id="lightboxMediaContainer">
+      <img id="lightboxImage" src="" alt="Expanded view" style="display: none;" />
+      <video id="lightboxVideo" controls style="display: none;"></video>
+    </div>
+    <div id="lightboxControls">
+      <button class="lightboxBtn" onclick="prevImage(event)">◀ Poprzednie</button>
+      <button class="lightboxBtn" onclick="nextImage(event)">Następne ▶</button>
+    </div>
+  </div>
+
+  <script>
+  const API_URL = 'https://gallery-api-1000866423573.europe-west1.run.app';
+
+  let allUrls = [];
+  let currentIndex = 0;
+  const pageSize = 20;
+  let currentLightboxIndex = -1;
+
+  function isVideo(url) {
+    return url.match(/\.(mp4|webm|ogg)$/i);
+  }
+
+  async function fetchAllImages() {
+    try {
+      const res = await fetch(`${API_URL}/images`);
+      if (!res.ok) throw new Error('Nie udało się załadować zdjęć. Prosimy spróbować ponownie.');
+      allUrls = await res.json();
+      currentIndex = 0;
+      document.getElementById('gallery').innerHTML = '';
+      displayImages();
+    } catch (err) {
+      console.error(err);
+      alert('Nie można załadować galerii. Prosimy spróbować ponownie.');
+    }
+  }
+
+  function displayImages() {
+    const gallery = document.getElementById('gallery');
+    const nextBatch = allUrls.slice(currentIndex, currentIndex + pageSize);
+
+    const mediaHtml = nextBatch.map((url, idx) => {
+      if (isVideo(url)) {
+        return `
+          <video
+            src="${url}"
+            loading="lazy"
+            onclick="openLightbox(${currentIndex + idx})"
+            muted
+            playsinline
+            preload="metadata"
+            style="width: 100%; aspect-ratio: 1 / 1; border-radius: 8px; cursor: pointer; object-fit: cover; border: 1px solid #e0d7cd; box-shadow: 0 4px 10px rgba(0,0,0,0.05);"
+          ></video>`;
+      } else {
+        return `
+          <img 
+            src="${url}" 
+            alt="Wspomnienie ze ślubu" 
+            loading="lazy" 
+            onclick="openLightbox(${currentIndex + idx})"
+            onerror="this.onerror=null; this.src='placeholder.jpg';"
+          />`;
+      }
+    }).join('');
+
+    gallery.insertAdjacentHTML('beforeend', mediaHtml);
+    currentIndex += pageSize;
+
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    if (currentIndex >= allUrls.length) {
+      loadMoreBtn.style.display = 'none';
+    } else {
+      loadMoreBtn.style.display = 'inline-block';
+    }
+  }
+
+  function loadMoreImages() {
+    displayImages();
+  }
+
+  function openLightbox(index) {
+    currentLightboxIndex = index;
+    const overlay = document.getElementById('lightboxOverlay');
+    const lightboxImg = document.getElementById('lightboxImage');
+    const lightboxVideo = document.getElementById('lightboxVideo');
+
+    const url = allUrls[index];
+    if (isVideo(url)) {
+      lightboxImg.style.display = 'none';
+      lightboxVideo.style.display = 'block';
+      lightboxVideo.src = url;
+      lightboxVideo.play();
+    } else {
+      lightboxVideo.pause();
+      lightboxVideo.style.display = 'none';
+      lightboxVideo.src = '';
+      lightboxImg.style.display = 'block';
+      lightboxImg.src = url;
+    }
+
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden'; // prevent background scroll
+  }
+
+  function closeLightbox(event) {
+    if (event.target.id === 'lightboxOverlay') {
+      const overlay = document.getElementById('lightboxOverlay');
+      overlay.style.display = 'none';
+      const lightboxImg = document.getElementById('lightboxImage');
+      const lightboxVideo = document.getElementById('lightboxVideo');
+
+      lightboxImg.src = '';
+      lightboxImg.style.display = 'none';
+
+      lightboxVideo.pause();
+      lightboxVideo.src = '';
+      lightboxVideo.style.display = 'none';
+
+      document.body.style.overflow = 'auto';
+    }
+  }
+
+  function prevImage(event) {
+    event.stopPropagation();
+    if (currentLightboxIndex > 0) {
+      currentLightboxIndex--;
+    } else {
+      currentLightboxIndex = allUrls.length - 1;
+    }
+    updateLightboxImage();
+  }
+
+  function nextImage(event) {
+    event.stopPropagation();
+    if (currentLightboxIndex < allUrls.length - 1) {
+      currentLightboxIndex++;
+    } else {
+      currentLightboxIndex = 0;
+    }
+    updateLightboxImage();
+  }
+
+  function updateLightboxImage() {
+    const url = allUrls[currentLightboxIndex];
+    const lightboxImg = document.getElementById('lightboxImage');
+    const lightboxVideo = document.getElementById('lightboxVideo');
+
+    if (isVideo(url)) {
+      lightboxImg.style.display = 'none';
+      lightboxVideo.style.display = 'block';
+      lightboxVideo.src = url;
+      lightboxVideo.play();
+    } else {
+      lightboxVideo.pause();
+      lightboxVideo.style.display = 'none';
+      lightboxVideo.src = '';
+      lightboxImg.style.display = 'block';
+      lightboxImg.src = url;
+    }
+  }
+
+  // Initial fetch when page loads
+  window.onload = fetchAllImages;
+</script>
