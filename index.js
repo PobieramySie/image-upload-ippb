@@ -14,7 +14,7 @@ const bucket = storage.bucket(bucketName);
 // Configure multer for in-memory upload
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+  limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2GB
 });
 
 // Upload endpoint
