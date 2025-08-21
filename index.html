@@ -180,14 +180,16 @@
           xhr.upload.onprogress = (event) => {
             if (event.lengthComputable) {
               const delta = event.loaded - previousLoaded;
+              console.log(`[DEBUG] file: ${file.name}, loaded: ${event.loaded}, previous: ${previousLoaded}, delta: ${delta}`);
               previousLoaded = event.loaded;
               uploadedBytes += delta;
-
               const percent = Math.min(Math.round((uploadedBytes / totalBytes) * 100), 100);
+              console.log(`[DEBUG] Uploaded bytes: ${uploadedBytes}/${totalBytes} → ${percent}%`);
               progressBar.value = percent;
               progressText.textContent = `${percent}%`;
             }
           };
+
 
           xhr.onload = () => {
             if (xhr.status === 200 || xhr.status === 201) {
