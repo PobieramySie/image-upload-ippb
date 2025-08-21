@@ -20,7 +20,7 @@ app.post('/upload', (req, res) => {
     const blob = bucket.file(destination);
 
     const blobStream = blob.createWriteStream({
-      resumable: true,
+      resumable: false, // true
       metadata: {
         contentType: mimeType,
       },
