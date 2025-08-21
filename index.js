@@ -12,8 +12,7 @@ const bucket = storage.bucket('image-gallery-ippb');
 // Upload endpoint using Busboy (streaming parser)
 app.post('/upload', (req, res) => {
   const bb = busboy({ headers: req.headers });
-
-  const uploadedUrls = [];
+  const uploadPromises = [];
 
   bb.on('file', (fieldname, file, info) => {
     const { filename, mimeType } = info;
@@ -27,27 +26,42 @@ app.post('/upload', (req, res) => {
       },
     });
 
-    file.pipe(blobStream);
+    const uploadPromise = new Promise((resolve, reject) => {
+      blobStream.on('error', (err) => {
+        console.error('GCS Upload Error:', err);
+        reject(err);
+      });
 
-    blobStream.on('error', err => {
-      console.error('Upload error:', err);
-      res.status(500).json({ error: 'Upload error' });
+      blobStream.on('finish', () => {
+        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
+        resolve(publicUrl);
+      });
+
+      file.pipe(blobStream);
     });
 
-    blobStream.on('finish', () => {
-      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
-      uploadedUrls.push(publicUrl);
-    });
+    uploadPromises.push(uploadPromise);
   });
 
-  bb.on('close', () => {
-    res.status(200).json({ urls: uploadedUrls });
+  bb.on('error', (err) => {
+    console.error('Busboy Error:', err);
+    res.status(500).json({ error: 'Upload parsing failed' });
+  });
+
+  bb.on('close', async () => {
+    try {
+      const urls = await Promise.all(uploadPromises);
+      res.status(200).json({ urls });
+    } catch (err) {
+      res.status(500).json({ error: 'Upload failed during storage write' });
+    }
   });
 
   req.pipe(bb);
 });
 
-// ✅ START THE SERVER
+
+// START THE SERVER
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
