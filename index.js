@@ -46,3 +46,9 @@ app.post('/upload', (req, res) => {
 
   req.pipe(bb);
 });
+
+// ✅ START THE SERVER
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+});
