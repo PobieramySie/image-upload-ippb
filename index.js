@@ -6,25 +6,31 @@ const busboy = require('busboy');
 const app = express();
 app.use(cors());
 
+// Initialize Google Cloud Storage
 const storage = new Storage();
-const bucket = storage.bucket('image-gallery-ippb');
+const bucket = storage.bucket('image-gallery-ippb'); // Change to your bucket name if needed
 
-// Upload endpoint using Busboy (streaming parser)
+// Upload endpoint
 app.post('/upload', (req, res) => {
   const bb = busboy({ headers: req.headers });
   const uploadPromises = [];
 
   bb.on('file', (fieldname, file, info) => {
-    const { filename, mimeType } = info;
-    const destination = `${Date.now()}-${filename}`;
+    let { filename, mimeType } = info;
+
+    // Sanitize filename to prevent issues
+    const safeFilename = filename.replace(/[^a-z0-9_.-]/gi, '_');
+    const destination = `${Date.now()}-${safeFilename}`;
     const blob = bucket.file(destination);
 
     const blobStream = blob.createWriteStream({
-      resumable: false, // true
+      resumable: false, // Fast, simple, good for direct uploads via Cloud Run
       metadata: {
         contentType: mimeType,
       },
     });
+
+    file.pipe(blobStream); // Start piping before handling events
 
     const uploadPromise = new Promise((resolve, reject) => {
       blobStream.on('error', (err) => {
@@ -36,8 +42,6 @@ app.post('/upload', (req, res) => {
         const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
         resolve(publicUrl);
       });
-
-      file.pipe(blobStream);
     });
 
     uploadPromises.push(uploadPromise);
@@ -57,12 +61,11 @@ app.post('/upload', (req, res) => {
     }
   });
 
-  req.pipe(bb);
+  req.pipe(bb); // Start streaming request into Busboy
 });
 
-
-// START THE SERVER
+// Start the server on the Cloud Run expected port
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  console.log(`Server is listening on port ${PORT}`);
 });
