@@ -64,6 +64,19 @@ app.post('/upload', (req, res) => {
   req.pipe(bb); // Start streaming request into Busboy
 });
 
+app.get('/images', async (req, res) => {
+  try {
+    const [files] = await bucket.getFiles();
+    const urls = files.map(file =>
+      `https://storage.googleapis.com/${bucket.name}/${file.name}`
+    );
+    res.status(200).json(urls);
+  } catch (err) {
+    console.error('Error fetching images:', err);
+    res.status(500).json({ error: 'Failed to list images' });
+  }
+});
+
 // Start the server on the Cloud Run expected port
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
