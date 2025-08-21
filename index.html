@@ -149,22 +149,13 @@
 
     try {
       const uploadedUrls = [];
-      let totalBytes = 0;
-      for (const file of files) totalBytes += file.size;
 
+      // Calculate total size of all files
+      const totalBytes = Array.from(files).reduce((sum, file) => sum + file.size, 0);
       let uploadedBytes = 0;
 
-      // Helper to update progress
-      function updateProgress(chunkSize) {
-        uploadedBytes += chunkSize;
-        const percent = Math.round((uploadedBytes / totalBytes) * 100);
-        progressBar.value = percent;
-        progressText.textContent = `${percent}%`;
-      }
-
-      // For each file, get signed URL and upload directly
+      // For each file, request a signed URL and upload
       for (const file of files) {
-        // 1. Request signed URL from backend
         const response = await fetch(`${API_URL}/generate-signed-url`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -178,16 +169,45 @@
 
         const { signedUrl, publicUrl } = await response.json();
 
-        // 2. Upload file directly to GCS signed URL
-        await uploadFileToSignedUrl(file, signedUrl, updateProgress);
+        // Upload file and track progress
+        await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('PUT', signedUrl);
+          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+
+          let previousLoaded = 0;
+
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const delta = event.loaded - previousLoaded;
+              previousLoaded = event.loaded;
+              uploadedBytes += delta;
+
+              const percent = Math.min(Math.round((uploadedBytes / totalBytes) * 100), 100);
+              progressBar.value = percent;
+              progressText.textContent = `${percent}%`;
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status === 200 || xhr.status === 201) {
+              resolve();
+            } else {
+              reject(new Error(`Upload failed with status ${xhr.status}`));
+            }
+          };
+
+          xhr.onerror = () => reject(new Error('Błąd sieci podczas przesyłania.'));
+          xhr.send(file);
+        });
 
         uploadedUrls.push(publicUrl);
       }
 
       loadingScreen.style.display = 'none';
       input.value = '';
-
       alert('Przesłane pliki:\n' + uploadedUrls.join('\n'));
+
     } catch (err) {
       loadingScreen.style.display = 'none';
       console.error(err);
@@ -195,39 +215,7 @@
     }
   }
 
-  function uploadFileToSignedUrl(file, signedUrl, overallProgressCallback) {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', signedUrl);
-    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-
-    let lastLoaded = 0;
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const delta = event.loaded - lastLoaded;
-        lastLoaded = event.loaded;
-        overallProgressCallback(delta);  // Add only the difference
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status === 200 || xhr.status === 201) {
-        resolve();
-      } else {
-        reject(new Error(`Upload failed with status ${xhr.status}`));
-      }
-    };
-
-    xhr.onerror = () => {
-      reject(new Error('Błąd sieci podczas przesyłania.'));
-    };
-
-    xhr.send(file);
-  });
-}
-
-  // Optional: warn user before leaving during upload
+  // Optional: warn before leaving if uploading
   window.onbeforeunload = function () {
     if (document.getElementById('loadingScreen').style.display === 'flex') {
       return 'Trwa przesyłanie plików. Czy na pewno chcesz opuścić stronę?';
