@@ -195,34 +195,37 @@
     }
   }
 
-  // Upload a single file to signed URL using PUT
-  function uploadFileToSignedUrl(file, signedUrl, progressCallback) {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('PUT', signedUrl);
-      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+  function uploadFileToSignedUrl(file, signedUrl, overallProgressCallback) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', signedUrl);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
 
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          progressCallback(event.loaded);
-        }
-      };
+    let lastLoaded = 0;
 
-      xhr.onload = () => {
-        if (xhr.status === 200 || xhr.status === 201) {
-          resolve();
-        } else {
-          reject(new Error(`Upload failed with status ${xhr.status}`));
-        }
-      };
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const delta = event.loaded - lastLoaded;
+        lastLoaded = event.loaded;
+        overallProgressCallback(delta);  // Add only the difference
+      }
+    };
 
-      xhr.onerror = () => {
-        reject(new Error('Błąd sieci podczas przesyłania.'));
-      };
+    xhr.onload = () => {
+      if (xhr.status === 200 || xhr.status === 201) {
+        resolve();
+      } else {
+        reject(new Error(`Upload failed with status ${xhr.status}`));
+      }
+    };
 
-      xhr.send(file);
-    });
-  }
+    xhr.onerror = () => {
+      reject(new Error('Błąd sieci podczas przesyłania.'));
+    };
+
+    xhr.send(file);
+  });
+}
 
   // Optional: warn user before leaving during upload
   window.onbeforeunload = function () {
