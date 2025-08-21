@@ -179,20 +179,18 @@
 
           xhr.upload.onprogress = (event) => {
             if (event.lengthComputable) {
-              // Prevent going over 100% due to duplicate 100% progress events
-              const delta = Math.max(0, event.loaded - previousLoaded);
+              const delta = event.loaded - previousLoaded;
               previousLoaded = event.loaded;
+
               uploadedBytes += delta;
-          
+
               const percent = Math.min(Math.round((uploadedBytes / totalBytes) * 100), 100);
-          
               progressBar.value = percent;
               progressText.textContent = `${percent}%`;
-          
-              console.log(`[DEBUG] ${file.name} | +${delta} bytes | Uploaded total: ${uploadedBytes}/${totalBytes} → ${percent}%`);
+
+              console.log(`[DEBUG] Uploading ${file.name}: +${delta} bytes → ${uploadedBytes}/${totalBytes} → ${percent}%`);
             }
           };
-
 
           xhr.onload = () => {
             if (xhr.status === 200 || xhr.status === 201) {
@@ -213,7 +211,6 @@
       input.value = '';
       alert('Przesłane pliki:\n' + uploadedUrls.join('\n'));
 
-      loadingScreen.style.display = 'none';
       progressBar.value = 0;
       progressText.textContent = '0%';
 
@@ -230,7 +227,7 @@
       return 'Trwa przesyłanie plików. Czy na pewno chcesz opuścić stronę?';
     }
   };
-</script>
+  </script>
 
 </body>
 </html>
