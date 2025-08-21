@@ -1,69 +1,46 @@
 const express = require('express');
 const cors = require('cors');
 const { Storage } = require('@google-cloud/storage');
-const busboy = require('busboy');
 
 const app = express();
 app.use(cors());
+app.use(express.json()); // to parse JSON bodies
 
 // Initialize Google Cloud Storage
 const storage = new Storage();
-const bucket = storage.bucket('image-gallery-ippb'); // Change to your bucket name if needed
+const bucket = storage.bucket('image-gallery-ippb'); // Your bucket name
 
-// Upload endpoint
-app.post('/upload', (req, res) => {
-  const bb = busboy({ headers: req.headers });
-  const uploadPromises = [];
+// Generate signed URL for upload
+app.post('/generate-signed-url', async (req, res) => {
+  try {
+    const { filename, contentType } = req.body;
 
-  bb.on('file', (fieldname, file, info) => {
-    let { filename, mimeType } = info;
+    if (!filename || !contentType) {
+      return res.status(400).json({ error: 'Missing filename or contentType' });
+    }
 
-    // Sanitize filename to prevent issues
+    // Sanitize filename (optional, but recommended)
     const safeFilename = filename.replace(/[^a-z0-9_.-]/gi, '_');
     const destination = `${Date.now()}-${safeFilename}`;
-    const blob = bucket.file(destination);
+    const file = bucket.file(destination);
 
-    const blobStream = blob.createWriteStream({
-      resumable: false, // Fast, simple, good for direct uploads via Cloud Run
-      metadata: {
-        contentType: mimeType,
-      },
-    });
+    const options = {
+      version: 'v4',
+      action: 'write',
+      expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+      contentType,
+    };
 
-    file.pipe(blobStream); // Start piping before handling events
+    const [signedUrl] = await file.getSignedUrl(options);
 
-    const uploadPromise = new Promise((resolve, reject) => {
-      blobStream.on('error', (err) => {
-        console.error('GCS Upload Error:', err);
-        reject(err);
-      });
-
-      blobStream.on('finish', () => {
-        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
-        resolve(publicUrl);
-      });
-    });
-
-    uploadPromises.push(uploadPromise);
-  });
-
-  bb.on('error', (err) => {
-    console.error('Busboy Error:', err);
-    res.status(500).json({ error: 'Upload parsing failed' });
-  });
-
-  bb.on('close', async () => {
-    try {
-      const urls = await Promise.all(uploadPromises);
-      res.status(200).json({ urls });
-    } catch (err) {
-      res.status(500).json({ error: 'Upload failed during storage write' });
-    }
-  });
-
-  req.pipe(bb); // Start streaming request into Busboy
+    res.status(200).json({ signedUrl, publicUrl: `https://storage.googleapis.com/${bucket.name}/${destination}` });
+  } catch (err) {
+    console.error('Error generating signed URL:', err);
+    res.status(500).json({ error: 'Could not generate signed URL' });
+  }
 });
 
+// List images endpoint (unchanged)
 app.get('/images', async (req, res) => {
   try {
     const [files] = await bucket.getFiles();
