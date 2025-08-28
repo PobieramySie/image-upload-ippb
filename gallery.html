@@ -226,7 +226,7 @@
         return `
           <img 
             src="${url}" 
-            alt="Wspomnienie ze ślubu" 
+            alt="Wedding Memories" 
             loading="lazy" 
             onclick="openLightbox(${currentIndex + idx})"
             onerror="this.onerror=null; this.src='placeholder.jpg';"
@@ -266,6 +266,9 @@
       lightboxVideo.style.display = 'none';
       lightboxVideo.src = '';
       lightboxImg.style.display = 'block';
+      lightboxImg.onerror = () => {
+        lightboxImg.src = 'placeholder.jpg';
+      };
       lightboxImg.src = url;
     }
 
@@ -320,12 +323,23 @@
       lightboxImg.style.display = 'none';
       lightboxVideo.style.display = 'block';
       lightboxVideo.src = url;
+      lightboxVideo.onerror = () => {
+        // Hide the video and show the placeholder image instead
+        lightboxVideo.style.display = 'none';
+        lightboxVideo.src = '';  // Clear src to stop loading
+        const lightboxImg = document.getElementById('lightboxImage');
+        lightboxImg.style.display = 'block';
+        lightboxImg.src = 'placeholder.jpg';
+      };
       lightboxVideo.play();
     } else {
       lightboxVideo.pause();
       lightboxVideo.style.display = 'none';
       lightboxVideo.src = '';
       lightboxImg.style.display = 'block';
+      lightboxImg.onerror = () => {
+        lightboxImg.src = 'placeholder.jpg';
+      };
       lightboxImg.src = url;
     }
   }
